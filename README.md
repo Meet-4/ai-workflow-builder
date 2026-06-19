@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FlowMind AI — Natural Language AI Workflow Builder
+
+Create production-ready AI workflows with natural language. Describe your automation tasks and our AI engine generates interactive nodes and coordinates multi-step agent actions.
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router, Turbopack)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4
+- **UI Components:** shadcn/ui, Lucide Icons, Recharts
+- **Workflow Canvas:** @xyflow/react (React Flow)
+- **Database:** MongoDB Atlas (via Mongoose)
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) v18 or later
+- A [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) free cluster (or local MongoDB)
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+> **Windows PowerShell Users:** If you get a "running scripts is disabled" error, either:
+> - Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` in an Admin PowerShell, **OR**
+> - Use `cmd /c npm install` instead.
+
+### 2. Set Up Environment Variables
+
+Copy the example env file and fill in your MongoDB connection string:
+
+```bash
+cp .env.example .env.local
+```
+
+Then edit `.env.local` and replace the placeholder with your actual MongoDB Atlas connection string:
+
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/flowmind-ai?retryWrites=true&w=majority
+```
+
+> **Tip:** You can get your connection string from the MongoDB Atlas dashboard:
+> **Cluster → Connect → Drivers → Copy connection string**
+
+### 3. Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> **Windows PowerShell Users:** Use `cmd /c npm run dev` if you see script errors.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Build for Production
 
-## Learn More
+```bash
+npm run build
+npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── page.tsx            # Landing page
+│   ├── layout.tsx          # Root layout
+│   ├── (dashboard)/        # Dashboard route group
+│   │   ├── layout.tsx      # Dashboard layout with Sidebar
+│   │   ├── dashboard/      # Main dashboard page
+│   │   ├── workflows/      # Workflows list page
+│   │   ├── profile/        # User profile page
+│   │   └── ...
+│   └── api/                # API routes
+│       ├── workflows/      # Workflow CRUD endpoints
+│       └── executions/     # Execution log endpoints
+├── components/             # Reusable UI components
+│   ├── Sidebar.tsx         # Collapsible sidebar navigation
+│   ├── DashboardCharts.tsx # Analytics chart component
+│   ├── WorkflowsList.tsx   # Workflows list with search
+│   └── ui/                 # shadcn/ui primitives
+├── models/                 # Mongoose schemas
+│   ├── User.ts
+│   ├── Workflow.ts
+│   └── Execution.ts
+└── lib/                    # Utility modules
+    ├── db.ts               # MongoDB connection helper
+    └── utils.ts            # General utilities
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Authentication** is currently disabled (using a mock user). Clerk integration can be re-added later.
+- The app works even without a database connection — the dashboard will show empty/mock data and log connection errors to the console.
