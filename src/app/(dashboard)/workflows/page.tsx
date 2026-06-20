@@ -2,8 +2,9 @@
 import { connectToDatabase } from "@/lib/db";
 import Workflow from "@/models/Workflow";
 import WorkflowsList from "@/components/WorkflowsList";
+import { localStore } from "@/lib/local-store";
 
-export const revalidate = 0; // Fresh database fetches always
+export const revalidate = 0;
 
 export default async function WorkflowsPage() {
   let workflows: { _id: string; title: string; description: string; createdAt: string }[] = [];
@@ -15,15 +16,21 @@ export default async function WorkflowsPage() {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Serialize MongoDB ObjectIds and Dates for Client Component consumption
     workflows = rawWorkflows.map((flow) => ({
       _id: flow._id.toString(),
       title: flow.title,
       description: flow.description || "",
       createdAt: flow.createdAt.toISOString(),
     }));
-  } catch (error) {
-    console.error("Workflows: Failed to connect to database:", error);
+  } catch {
+    // Fall back to local store — silent, no console spam
+    const local = localStore.find("workflows", { userId: "mock-user-123" });
+    workflows = local.map((w) => ({
+      _id: w._id,
+      title: (w.title as string) || "Untitled",
+      description: (w.description as string) || "",
+      createdAt: w.createdAt,
+    }));
   }
 
   return (

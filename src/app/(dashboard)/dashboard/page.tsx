@@ -15,8 +15,9 @@ import Workflow, { IWorkflow } from "@/models/Workflow";
 import Execution, { IExecution } from "@/models/Execution";
 import DashboardCharts from "@/components/DashboardCharts";
 import { Button } from "@/components/ui/button";
+import { localStore } from "@/lib/local-store";
 
-export const revalidate = 0; // Disable static caching so data is fresh
+export const revalidate = 0;
 
 export default async function DashboardPage() {
   const userId = "mock-user-123";
@@ -27,43 +28,54 @@ export default async function DashboardPage() {
   try {
     await connectToDatabase();
 
-
-    // Fetch all user's workflows
     workflows = await Workflow.find({ userId })
       .sort({ createdAt: -1 })
       .lean();
 
-    // Get workflow IDs for execution query
     const workflowIds = workflows.map((w) => w._id);
 
-    // Fetch executions related to user's workflows
-    executions = workflowIds.length > 0 
+    executions = workflowIds.length > 0
       ? await Execution.find({ workflowId: { $in: workflowIds } })
           .sort({ executedAt: -1 })
           .lean()
       : [];
-  } catch (error) {
-    console.error("Dashboard: Failed to connect to database:", error);
+  } catch {
+    // Fall back to local store — silent, no console spam
+    const localWfs = localStore.find("workflows", { userId });
+    const localExecs = localStore.find("executions");
+
+    // Cast local store data to match shape expected by the template below
+    workflows = localWfs.map((w) => ({
+      ...w,
+      _id: w._id as unknown as IWorkflow["_id"],
+      createdAt: new Date(w.createdAt),
+      updatedAt: new Date(w.updatedAt),
+    })) as unknown as IWorkflow[];
+
+    const wfIds = new Set(localWfs.map((w) => w._id));
+    executions = localExecs
+      .filter((e: Record<string, unknown>) => wfIds.has(e.workflowId as string))
+      .map((e) => ({
+        ...e,
+        executedAt: new Date((e.executedAt ?? e.createdAt) as string),
+      })) as unknown as IExecution[];
   }
 
   const totalWorkflows = workflows.length;
   const totalExecutions = executions.length;
-  
-  // Calculate success rate
+
   const successExecutions = executions.filter((e) => e.status === "success").length;
-  const successRate = totalExecutions > 0 
-    ? Math.round((successExecutions / totalExecutions) * 100) 
+  const successRate = totalExecutions > 0
+    ? Math.round((successExecutions / totalExecutions) * 100)
     : 100;
 
-  // Generate chart data based on execution logs (grouped by day for past 7 days)
   const chartData = [];
   const now = new Date();
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(now.getDate() - i);
     const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    
-    // Filter executions for this day
+
     const dayExecutions = executions.filter((e) => {
       const execDate = new Date(e.executedAt);
       return execDate.toDateString() === d.toDateString();
@@ -72,7 +84,6 @@ export default async function DashboardPage() {
     const success = dayExecutions.filter((e) => e.status === "success").length;
     const failed = dayExecutions.filter((e) => e.status === "failed").length;
 
-    // Seed mock data if there are no executions, to show a beautiful initial flow chart
     if (totalExecutions === 0) {
       chartData.push({
         date: dateStr,
@@ -80,11 +91,7 @@ export default async function DashboardPage() {
         failed: Math.floor(Math.random() * 2),
       });
     } else {
-      chartData.push({
-        date: dateStr,
-        success,
-        failed,
-      });
+      chartData.push({ date: dateStr, success, failed });
     }
   }
 
@@ -92,7 +99,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex-1 space-y-8 p-8 pt-6">
-      {/* Header / Welcome Area */}
+      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white">
@@ -111,9 +118,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Overview Statistics Cards */}
+      {/* Overview Stats */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Stat Card 1: Active Workflows */}
         <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-md transition hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-400">Total Workflows</span>
@@ -127,7 +133,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Stat Card 2: Total Runs */}
         <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-md transition hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-400">Total Executions</span>
@@ -143,7 +148,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Stat Card 3: Success Rate */}
         <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-md transition hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-400">Success Rate</span>
@@ -157,7 +161,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Stat Card 4: Status Indicator */}
         <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-md transition hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-400">System Status</span>
@@ -175,12 +178,12 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Analytics Charts */}
+      {/* Charts */}
       <div>
         <DashboardCharts data={chartData} />
       </div>
 
-      {/* Recent Workflows Section */}
+      {/* Recent Workflows */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 backdrop-blur-md">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -194,9 +197,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Check if zero workflows */}
         {totalWorkflows === 0 ? (
-          /* Empty State UI */
           <div className="flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-xl p-12 text-center bg-zinc-950/40">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 mb-4 text-violet-400">
               <Network size={32} />
@@ -212,7 +213,6 @@ export default async function DashboardPage() {
             </Link>
           </div>
         ) : (
-          /* Workflows List Grid */
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
