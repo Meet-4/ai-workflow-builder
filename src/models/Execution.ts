@@ -1,19 +1,38 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model } from 'mongoose';
+import { ExecutionResult } from '@/types/workflow';
 
 export interface IExecution extends Document {
-  workflowId: mongoose.Types.ObjectId;
-  status: "success" | "failed" | "running";
-  logs: string[];
-  executedAt: Date;
+  workflowId: string;
+  executionId: string;
+  userId: string;
+  status: 'success' | 'failed' | 'pending' | 'running';
+  startTime: Date;
+  endTime?: Date;
+  duration?: number;
+  result: ExecutionResult;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ExecutionSchema = new Schema<IExecution>({
-  workflowId: { type: Schema.Types.ObjectId, ref: "Workflow", required: true, index: true },
-  status: { type: String, enum: ["success", "failed", "running"], required: true },
-  logs: { type: [String], default: [] },
-  executedAt: { type: Date, default: Date.now },
+  workflowId: { type: String, required: true, index: true },
+  executionId: { type: String, required: true, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
+  status: {
+    type: String,
+    enum: ['success', 'failed', 'pending', 'running'],
+    default: 'pending',
+  },
+  startTime: { type: Date, required: true },
+  endTime: { type: Date },
+  duration: { type: Number },
+  result: { type: Schema.Types.Mixed },
+  createdAt: { type: Date, default: Date.now, index: true },
+  updatedAt: { type: Date, default: Date.now },
 });
 
-const Execution: Model<IExecution> = mongoose.models.Execution || mongoose.model<IExecution>("Execution", ExecutionSchema);
+const Execution: Model<IExecution> =
+  mongoose.models.Execution ||
+  mongoose.model<IExecution>('Execution', ExecutionSchema);
 
 export default Execution;
