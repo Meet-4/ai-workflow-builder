@@ -199,7 +199,7 @@ export default function WorkflowCanvas() {
     [setNodes, setEdges]
   );
 
-  // Inject onDelete callback to nodes
+  // Inject onDelete callback to nodes - memoized to prevent reference changes
   const mapNodesWithCallback = useCallback(
     (nodesToMap: Node<WorkflowNodeData>[]) => {
       return nodesToMap.map((node) => ({
@@ -515,7 +515,7 @@ export default function WorkflowCanvas() {
           />
           <input
             type="text"
-            className="bg-transparent border-0 text-xs text-zinc-400 focus:outline-none focus:ring-0 flex-1 hidden md:block border-b border-transparent hover:border-zinc-850 focus:border-violet-500 pb-0.5"
+            className="bg-transparent border-0 text-xs text-zinc-400 focus:outline-none focus:ring-0 flex-1 hidden md:block border-b border-transparent hover:border-zinc-800 focus:border-violet-500 pb-0.5"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Workflow description..."

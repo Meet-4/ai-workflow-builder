@@ -23,7 +23,7 @@ export default function LandingPage() {
       <div className="absolute left-1/3 bottom-10 h-80 w-80 rounded-full bg-emerald-600/5 blur-3xl"></div>
 
       {/* Grid Pattern Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f2e_1px,transparent_1px),linear-gradient(to_bottom,#1f1f2e_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_70%,transparent_100%)] opacity-25"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f2e_1px,transparent_1px),linear-gradient(to_bottom,#1f1f2e_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_0%,black,transparent)]"></div>
 
       {/* Navbar Header */}
       <header className="relative z-10 border-b border-zinc-900 bg-zinc-950/50 backdrop-blur-md">

@@ -157,7 +157,7 @@ export default function WorkflowsList({ initialWorkflows }: WorkflowsListProps) 
           {filteredWorkflows.map((flow) => (
             <div 
               key={flow._id} 
-              className="group relative flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6 backdrop-blur-md transition-all duration-300 hover:border-zinc-700 hover:shadow-[0_0_25px_rgba(124,58,237,0.05)] hover:bg-zinc-900/40"
+              className="group relative flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6 backdrop-blur-md transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/50"
             >
               {/* Top Details */}
               <div className="space-y-3">
@@ -262,7 +262,7 @@ export default function WorkflowsList({ initialWorkflows }: WorkflowsListProps) 
               <AlertTriangle size={20} /> Delete Workflow
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Are you sure you want to delete <span className="font-semibold text-white">&quot;{selectedWorkflow?.title}&quot;</span>? This will permanently delete the workflow and its run histories. This action is irreversible.
+              Are you sure you want to delete <span className="font-semibold text-white">&quot;{selectedWorkflow?.title}&quot;</span>? This will permanently delete the workflow and its run history.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
