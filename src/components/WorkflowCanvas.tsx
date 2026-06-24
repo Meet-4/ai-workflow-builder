@@ -13,183 +13,96 @@ import {
   Connection,
   Edge,
   Node,
-  Handle,
-  Position,
-  NodeProps,
   Panel,
+  BackgroundVariant,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { 
-  Save, 
-  Sparkles, 
-  Trash2, 
-  Check, 
+import {
+  Save,
+  Play,
+  Trash2,
+  Check,
   AlertCircle,
-  Settings
+  Settings,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Zap,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { nodeTypes } from "@/components/nodes";
+import { NODE_REGISTRY, WorkflowNodeData, normaliseLegacyType } from "@/lib/node-registry";
+import type { ExecutionResult } from "@/lib/workflow-engine";
+import { cn } from "@/lib/utils";
 
-// Custom node rendering props types
-type WorkflowNodeData = {
-  label: string;
-  description: string;
-  config?: Record<string, string>;
-  onDelete?: (id: string) => void;
-};
+// ─────────────────────────────────────────────────────────────
+// Default canvas state
+// ─────────────────────────────────────────────────────────────
 
-type CustomNodeProps = NodeProps<Node<WorkflowNodeData>>;
-
-// Custom Nodes styling
-const TriggerNode = ({ id, data }: CustomNodeProps) => (
-  <div className="relative rounded-xl border border-emerald-500/30 bg-zinc-900/90 p-4 shadow-xl backdrop-blur-md min-w-[200px] text-left">
-    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-emerald-500 border border-zinc-950" />
-    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-      <div className="flex items-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Trigger</span>
-      </div>
-      <button 
-        onClick={() => data.onDelete?.(id)}
-        className="text-zinc-500 hover:text-red-400 transition"
-      >
-        <Trash2 size={12} />
-      </button>
-    </div>
-    <div className="mt-2.5">
-      <h4 className="text-sm font-semibold text-white">{data.label}</h4>
-      <p className="text-[11px] text-zinc-400 mt-1">{data.description}</p>
-    </div>
-  </div>
-);
-
-const ActionNode = ({ id, data }: CustomNodeProps) => (
-  <div className="relative rounded-xl border border-blue-500/30 bg-zinc-900/90 p-4 shadow-xl backdrop-blur-md min-w-[200px] text-left">
-    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-zinc-500 border border-zinc-950" />
-    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-blue-500 border border-zinc-950" />
-    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-      <div className="flex items-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-blue-500" />
-        <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Action</span>
-      </div>
-      <button 
-        onClick={() => data.onDelete?.(id)}
-        className="text-zinc-500 hover:text-red-400 transition"
-      >
-        <Trash2 size={12} />
-      </button>
-    </div>
-    <div className="mt-2.5">
-      <h4 className="text-sm font-semibold text-white">{data.label}</h4>
-      <p className="text-[11px] text-zinc-400 mt-1">{data.description}</p>
-    </div>
-  </div>
-);
-
-const AgentNode = ({ id, data }: CustomNodeProps) => (
-  <div className="relative rounded-xl border border-violet-500/30 bg-zinc-900/90 p-4 shadow-xl backdrop-blur-md min-w-[200px] text-left">
-    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-zinc-500 border border-zinc-950" />
-    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-violet-500 border border-zinc-950" />
-    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-      <div className="flex items-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
-        <span className="text-xs font-bold uppercase tracking-wider text-violet-400">Gemini Agent</span>
-      </div>
-      <button 
-        onClick={() => data.onDelete?.(id)}
-        className="text-zinc-500 hover:text-red-400 transition"
-      >
-        <Trash2 size={12} />
-      </button>
-    </div>
-    <div className="mt-2.5">
-      <h4 className="text-sm font-semibold text-white">{data.label}</h4>
-      <p className="text-[11px] text-zinc-400 mt-1">{data.description}</p>
-    </div>
-  </div>
-);
-
-const WebhookNode = ({ id, data }: CustomNodeProps) => (
-  <div className="relative rounded-xl border border-amber-500/30 bg-zinc-900/90 p-4 shadow-xl backdrop-blur-md min-w-[200px] text-left">
-    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-amber-500 border border-zinc-950" />
-    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-      <div className="flex items-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-amber-500" />
-        <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Webhook API</span>
-      </div>
-      <button 
-        onClick={() => data.onDelete?.(id)}
-        className="text-zinc-500 hover:text-red-400 transition"
-      >
-        <Trash2 size={12} />
-      </button>
-    </div>
-    <div className="mt-2.5">
-      <h4 className="text-sm font-semibold text-white">{data.label}</h4>
-      <p className="text-[11px] text-zinc-400 mt-1">{data.description}</p>
-    </div>
-  </div>
-);
-
-const initialNodes: Node<WorkflowNodeData>[] = [
+const DEFAULT_NODES: Node<WorkflowNodeData>[] = [
   {
     id: "trigger-1",
-    type: "trigger",
-    position: { x: 250, y: 50 },
-    data: { label: "Trigger: On Interval", description: "Fires every 1 hour automatically." },
+    type: "manualTrigger",
+    position: { x: 250, y: 60 },
+    data: { label: "Manual Trigger", description: "Click Execute to start this workflow." },
   },
   {
     id: "agent-1",
-    type: "agent",
-    position: { x: 250, y: 200 },
-    data: { label: "Gemini Model LLM", description: "Processes inputs and extracts user sentiment." },
+    type: "aiSummary",
+    position: { x: 250, y: 220 },
+    data: { label: "AI Summary", description: "Processes input with Gemini Flash." },
   },
   {
     id: "action-1",
-    type: "action",
-    position: { x: 250, y: 350 },
-    data: { label: "Email Notification", description: "Sends summary email with AI results." },
+    type: "saveDatabase",
+    position: { x: 250, y: 380 },
+    data: { label: "Save to Database", description: "Stores the result payload." },
   },
 ];
 
-const initialEdges: Edge[] = [
+const DEFAULT_EDGES: Edge[] = [
   { id: "e1-2", source: "trigger-1", target: "agent-1", animated: true },
   { id: "e2-3", source: "agent-1", target: "action-1", animated: true },
 ];
+
+// ─────────────────────────────────────────────────────────────
+// Node Palette groups
+// ─────────────────────────────────────────────────────────────
+
+const PALETTE_GROUPS = [
+  { label: "Triggers",     category: "trigger" as const },
+  { label: "AI / Actions", category: "action" as const,     extraCategory: "agent" as const },
+  { label: "Integrations", category: "integration" as const },
+] as const;
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 
 export default function WorkflowCanvas() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const workflowId = searchParams.get("id");
 
-  // Workflow title & description state
+  // Metadata
   const [title, setTitle] = useState("My AI Workflow");
-  const [description, setDescription] = useState("Automated sequence created using natural language");
+  const [description, setDescription] = useState("Automated sequence created with FlowMind AI");
 
-  // React Flow states
+  // Canvas state
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<WorkflowNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node<WorkflowNodeData> | null>(null);
 
-  // Natural language state
-  const [prompt, setPrompt] = useState("");
-  
-  // UI states
+  // UI state
   const [isSaving, setIsSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; success: boolean } | null>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+  const [logsExpanded, setLogsExpanded] = useState(false);
 
-  // Define custom node types
-  const nodeTypes = useMemo(
-    () => ({
-      trigger: TriggerNode,
-      action: ActionNode,
-      agent: AgentNode,
-      webhook: WebhookNode,
-    }),
-    []
-  );
-
-  // Sync delete function into node data
+  // ── Delete handler ──────────────────────────────────────────
   const handleDeleteNode = useCallback(
     (id: string) => {
       setNodes((nds) => nds.filter((n) => n.id !== id));
@@ -199,282 +112,199 @@ export default function WorkflowCanvas() {
     [setNodes, setEdges]
   );
 
-  // Inject onDelete callback to nodes
-  const mapNodesWithCallback = useCallback(
-    (nodesToMap: Node<WorkflowNodeData>[]) => {
-      return nodesToMap.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          onDelete: handleDeleteNode,
-        },
-      }));
-    },
+  // ── Inject callbacks into node data ────────────────────────
+  const withCallbacks = useCallback(
+    (raw: Node<WorkflowNodeData>[]): Node<WorkflowNodeData>[] =>
+      raw.map((n) => ({
+        ...n,
+        type: normaliseLegacyType(n.type ?? "") || n.type,
+        data: { ...n.data, onDelete: handleDeleteNode },
+      })),
     [handleDeleteNode]
   );
 
-  // Load existing workflow if ID present
+  // ── nodeTypes is stable — must be memoised ──────────────────
+  const stableNodeTypes = useMemo(() => nodeTypes, []);
+
+  // ── Load existing workflow ──────────────────────────────────
   useEffect(() => {
     if (workflowId) {
-      const loadWorkflow = async () => {
-        try {
-          const res = await fetch(`/api/workflows/${workflowId}`);
-          if (res.ok) {
-            const data = await res.json();
-            setTitle(data.title);
-            setDescription(data.description || "");
-            
-            if (data.workflowJson?.nodes && data.workflowJson?.edges) {
-              setNodes(mapNodesWithCallback(data.workflowJson.nodes));
-              setEdges(data.workflowJson.edges);
-            } else {
-              setNodes(mapNodesWithCallback(initialNodes));
-              setEdges(initialEdges);
-            }
+      fetch(`/api/workflows/${workflowId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return;
+          setTitle(data.title ?? "My AI Workflow");
+          setDescription(data.description ?? "");
+          const wj = data.workflowJson;
+          if (wj?.nodes?.length) {
+            setNodes(withCallbacks(wj.nodes));
+            setEdges(wj.edges ?? []);
+          } else {
+            setNodes(withCallbacks(DEFAULT_NODES));
+            setEdges(DEFAULT_EDGES);
           }
-        } catch (err) {
-          console.error("Failed to load workflow", err);
-        }
-      };
-      loadWorkflow();
+        })
+        .catch(() => {
+          setNodes(withCallbacks(DEFAULT_NODES));
+          setEdges(DEFAULT_EDGES);
+        });
     } else {
-      setNodes(mapNodesWithCallback(initialNodes));
-      setEdges(initialEdges);
+      setNodes(withCallbacks(DEFAULT_NODES));
+      setEdges(DEFAULT_EDGES);
     }
-  }, [workflowId, mapNodesWithCallback, setNodes, setEdges]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId]);
 
-  // Connect handler
+  // ── Connect ─────────────────────────────────────────────────
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
     [setEdges]
   );
 
-  // Node click selection handler
+  // ── Node click ──────────────────────────────────────────────
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<WorkflowNodeData>) => {
     setSelectedNode(node);
   }, []);
 
-  // Update specific selected node configuration
-  const handleUpdateNodeLabel = (label: string) => {
+  const onPaneClick = useCallback(() => setSelectedNode(null), []);
+
+  // ── Update selected node field ──────────────────────────────
+  const updateSelectedNode = (field: "label" | "description", value: string) => {
     if (!selectedNode) return;
     setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === selectedNode.id) {
-          return {
-            ...n,
-            data: { ...n.data, label },
-          };
-        }
-        return n;
-      })
+      nds.map((n) =>
+        n.id === selectedNode.id ? { ...n, data: { ...n.data, [field]: value } } : n
+      )
     );
-    setSelectedNode((prev) => (prev ? { ...prev, data: { ...prev.data, label } } : null));
+    setSelectedNode((prev) =>
+      prev ? { ...prev, data: { ...prev.data, [field]: value } } : null
+    );
   };
 
-  const handleUpdateNodeDescription = (description: string) => {
-    if (!selectedNode) return;
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === selectedNode.id) {
-          return {
-            ...n,
-            data: { ...n.data, description },
-          };
-        }
-        return n;
-      })
-    );
-    setSelectedNode((prev) => (prev ? { ...prev, data: { ...prev.data, description } } : null));
-  };
-
-  // Add standard nodes manually
-  const addNewNode = (type: "trigger" | "action" | "agent" | "webhook") => {
+  // ── Add node from palette ───────────────────────────────────
+  const addNode = (type: string, def: { name: string; defaultData: { label: string; description: string } }) => {
     const id = `${type}-${Date.now()}`;
-    let label = "New Node";
-    let desc = "Configure properties in inspector.";
-    
-    if (type === "trigger") {
-      label = "Trigger: Click";
-      desc = "Triggered via user interaction.";
-    } else if (type === "action") {
-      label = "Database Insert";
-      desc = "Appends results payload to Atlas collection.";
-    } else if (type === "agent") {
-      label = "Gemini Text Processor";
-      desc = "Translates natural language text.";
-    } else if (type === "webhook") {
-      label = "Webhook Receiver";
-      desc = "Listens on public endpoint: /api/webhooks";
-    }
-
     const newNode: Node<WorkflowNodeData> = {
       id,
-      type,
-      position: { x: 100 + Math.random() * 200, y: 150 + Math.random() * 200 },
-      data: { 
-        label, 
-        description: desc,
-        onDelete: handleDeleteNode
-      },
+      type: normaliseLegacyType(type) || type,
+      position: { x: 120 + Math.random() * 180, y: 120 + Math.random() * 200 },
+      data: { ...def.defaultData, onDelete: handleDeleteNode },
     };
-
     setNodes((nds) => [...nds, newNode]);
   };
 
-  // Natural Language prompt generator
-  const handleTranslatePrompt = () => {
-    if (!prompt.trim()) return;
-
-    const query = prompt.toLowerCase();
-    const generatedNodes: Node<WorkflowNodeData>[] = [];
-    const generatedEdges: Edge[] = [];
-
-    // Rule-based NLP generation
-    // Step 1: Detect Trigger / Input Node
-    let currentY = 50;
-    let lastNodeId = "";
-
-    if (query.includes("webhook") || query.includes("listen") || query.includes("api")) {
-      const id = "webhook-node-gen";
-      generatedNodes.push({
-        id,
-        type: "webhook",
-        position: { x: 250, y: currentY },
-        data: { label: "Webhook Input API", description: "Listens for payload inputs dynamically." },
-      });
-      lastNodeId = id;
-      currentY += 150;
-    } else {
-      // Default Interval trigger
-      const id = "trigger-node-gen";
-      generatedNodes.push({
-        id,
-        type: "trigger",
-        position: { x: 250, y: currentY },
-        data: { label: "Trigger: On Interval", description: "Schedule runs automatically." },
-      });
-      lastNodeId = id;
-      currentY += 150;
-    }
-
-    // Step 2: Detect AI / Gemini process node
-    if (query.includes("summarize") || query.includes("ai") || query.includes("gemini") || query.includes("translate") || query.includes("sentiment")) {
-      const id = "agent-node-gen";
-      generatedNodes.push({
-        id,
-        type: "agent",
-        position: { x: 250, y: currentY },
-        data: { 
-          label: "Gemini Model LLM", 
-          description: query.includes("summarize") 
-            ? "Summarize incoming payloads using Gemini 3.5 Flash." 
-            : query.includes("translate")
-            ? "Translate parameters to specified language."
-            : "Analyze document tone and sentiment."
-        },
-      });
-
-      if (lastNodeId) {
-        generatedEdges.push({ id: `e-${lastNodeId}-${id}`, source: lastNodeId, target: id, animated: true });
-      }
-      lastNodeId = id;
-      currentY += 150;
-    }
-
-    // Step 3: Detect notification or output action
-    if (query.includes("email") || query.includes("notify") || query.includes("send") || query.includes("slack")) {
-      const id = "action-node-gen";
-      generatedNodes.push({
-        id,
-        type: "action",
-        position: { x: 250, y: currentY },
-        data: { 
-          label: query.includes("slack") ? "Post Slack Message" : "Email Notification", 
-          description: query.includes("slack") 
-            ? "Pushes result summary to active Slack channels." 
-            : "Dispatches workflow status notification report." 
-        },
-      });
-
-      if (lastNodeId) {
-        generatedEdges.push({ id: `e-${lastNodeId}-${id}`, source: lastNodeId, target: id, animated: true });
-      }
-    }
-
-    // Fallback if prompt didn't yield matches
-    if (generatedNodes.length <= 1) {
-      // Create a default workflow with simple prompt indication
-      const trigId = "trig-flow";
-      const agentId = "agent-flow";
-      const actionId = "action-flow";
-      
-      generatedNodes.push(
-        {
-          id: trigId,
-          type: "trigger",
-          position: { x: 250, y: 50 },
-          data: { label: "Trigger Node", description: "NL generated input node." },
-        },
-        {
-          id: agentId,
-          type: "agent",
-          position: { x: 250, y: 200 },
-          data: { label: "AI Translation Agent", description: `Task: "${prompt}"` },
-        },
-        {
-          id: actionId,
-          type: "action",
-          position: { x: 250, y: 350 },
-          data: { label: "Response Action", description: "Dispatches compiled output." },
-        }
+  // ── Mark running nodes during execution ─────────────────────
+  const setNodeStatus = useCallback(
+    (
+      nodeId: string,
+      status: { isRunning?: boolean; isSuccess?: boolean; isFailed?: boolean }
+    ) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  isRunning: status.isRunning ?? false,
+                  isSuccess: status.isSuccess ?? false,
+                  isFailed: status.isFailed ?? false,
+                },
+              }
+            : n
+        )
       );
+    },
+    [setNodes]
+  );
 
-      generatedEdges.push(
-        { id: `e-${trigId}-${agentId}`, source: trigId, target: agentId, animated: true },
-        { id: `e-${agentId}-${actionId}`, source: agentId, target: actionId, animated: true }
-      );
+  // Clear all status flags
+  const clearNodeStatuses = useCallback(() => {
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, isRunning: false, isSuccess: false, isFailed: false },
+      }))
+    );
+  }, [setNodes]);
+
+  // ── Execute workflow ────────────────────────────────────────
+  const handleExecute = async () => {
+    if (!workflowId) {
+      setStatusMsg({ text: "Save the workflow first before running it.", ok: false });
+      setTimeout(() => setStatusMsg(null), 4000);
+      return;
     }
 
-    // Replace the canvas items with generated ones
-    setNodes(mapNodesWithCallback(generatedNodes));
-    setEdges(generatedEdges);
-    setPrompt("");
-    setSelectedNode(null);
+    setIsExecuting(true);
+    setExecutionResult(null);
+    clearNodeStatuses();
 
-    // Show visual status trigger
-    setStatusMessage({ text: "AI workflow structure generated successfully!", success: true });
-    setTimeout(() => setStatusMessage(null), 4000);
+    // Mark all nodes as running initially
+    const nodeOrder = nodes.map((n) => n.id);
+    for (const id of nodeOrder) setNodeStatus(id, { isRunning: true });
+
+    try {
+      const cleanNodes = nodes.map(({ id, type, position, data }) => ({
+        id,
+        type,
+        position,
+        data: { label: data.label, description: data.description, config: data.config },
+      }));
+
+      const res = await fetch("/api/executions/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowId,
+          workflowJson: { nodes: cleanNodes, edges },
+        }),
+      });
+
+      const data: ExecutionResult & { error?: string } = await res.json();
+
+      if (!res.ok) throw new Error(data.error ?? "Execution failed");
+
+      // Apply per-node status
+      for (const nr of data.nodeResults) {
+        setNodeStatus(nr.nodeId, {
+          isSuccess: nr.status === "success",
+          isFailed: nr.status === "failed",
+        });
+      }
+
+      setExecutionResult(data);
+      setStatusMsg({
+        text: data.status === "success" ? "Workflow executed successfully!" : "Workflow completed with errors.",
+        ok: data.status === "success",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Execution error";
+      setStatusMsg({ text: msg, ok: false });
+      for (const id of nodeOrder) setNodeStatus(id, { isFailed: true });
+    } finally {
+      setIsExecuting(false);
+      setTimeout(() => setStatusMsg(null), 5000);
+    }
   };
 
-  // Save workflow database call
-  const handleSaveWorkflow = async () => {
+  // ── Save ─────────────────────────────────────────────────────
+  const handleSave = async () => {
     setIsSaving(true);
-    setStatusMessage(null);
-    
-    // Clean nodes to avoid circular callback references in JSON
+    setStatusMsg(null);
+
     const cleanNodes = nodes.map(({ id, type, position, data }) => ({
       id,
       type,
       position,
-      data: {
-        label: data.label,
-        description: data.description,
-      },
+      data: { label: data.label, description: data.description, config: data.config },
     }));
 
-    const body = {
-      title,
-      description,
-      workflowJson: {
-        nodes: cleanNodes,
-        edges,
-      },
-    };
+    const body = { title, description, workflowJson: { nodes: cleanNodes, edges } };
 
     try {
       const url = workflowId ? `/api/workflows/${workflowId}` : "/api/workflows";
       const method = workflowId ? "PUT" : "POST";
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -483,128 +313,153 @@ export default function WorkflowCanvas() {
 
       if (res.ok) {
         const saved = await res.json();
-        setStatusMessage({ text: "Workflow saved successfully!", success: true });
-        
-        // If it was a new workflow, redirect to the edit path to retain workflowId context
-        if (!workflowId && saved._id) {
-          router.push(`/create?id=${saved._id}`);
-        }
+        setStatusMsg({ text: "Workflow saved!", ok: true });
+        if (!workflowId && saved._id) router.push(`/create?id=${saved._id}`);
       } else {
-        setStatusMessage({ text: "Failed to save workflow configurations", success: false });
+        setStatusMsg({ text: "Failed to save workflow.", ok: false });
       }
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ text: "Network error occurred while saving.", success: false });
+    } catch {
+      setStatusMsg({ text: "Network error while saving.", ok: false });
     } finally {
       setIsSaving(false);
-      setTimeout(() => setStatusMessage(null), 4000);
+      setTimeout(() => setStatusMsg(null), 4000);
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-zinc-950">
-      
-      {/* Top Controls Bar */}
-      <div className="flex h-16 items-center justify-between border-b border-zinc-900 bg-zinc-950/80 px-6 backdrop-blur-md">
-        <div className="flex items-center gap-4 flex-1">
+
+      {/* ── Top bar ─────────────────────────────────────────── */}
+      <div className="flex h-16 items-center justify-between border-b border-zinc-900 bg-zinc-950/80 px-6 backdrop-blur-md flex-shrink-0">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
           <input
             type="text"
-            className="bg-transparent border-0 font-bold text-white text-lg focus:outline-none focus:ring-0 w-64 border-b border-transparent hover:border-zinc-800 focus:border-violet-500 pb-0.5"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            className="bg-transparent font-bold text-white text-lg focus:outline-none w-56 border-b border-transparent hover:border-zinc-800 focus:border-violet-500 pb-0.5 truncate"
           />
           <input
             type="text"
-            className="bg-transparent border-0 text-xs text-zinc-400 focus:outline-none focus:ring-0 flex-1 hidden md:block border-b border-transparent hover:border-zinc-850 focus:border-violet-500 pb-0.5"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Workflow description..."
+            className="bg-transparent text-xs text-zinc-400 focus:outline-none flex-1 hidden md:block border-b border-transparent hover:border-zinc-850 focus:border-violet-500 pb-0.5"
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          {statusMessage && (
-            <div className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border ${
-              statusMessage.success 
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-                : "bg-red-500/10 border-red-500/20 text-red-400"
-            }`}>
-              {statusMessage.success ? <Check size={12} /> : <AlertCircle size={12} />}
-              <span>{statusMessage.text}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {statusMsg && (
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border",
+                statusMsg.ok
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  : "bg-red-500/10 border-red-500/20 text-red-400"
+              )}
+            >
+              {statusMsg.ok ? <Check size={12} /> : <AlertCircle size={12} />}
+              {statusMsg.text}
             </div>
           )}
-          
-          <Button 
-            onClick={handleSaveWorkflow} 
-            disabled={isSaving}
-            className="bg-violet-600 hover:bg-violet-700 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition"
+
+          <Button
+            onClick={handleExecute}
+            disabled={isExecuting || !workflowId}
+            title={!workflowId ? "Save first to enable execution" : "Execute workflow"}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)]"
           >
-            <Save className="mr-2 h-4 w-4" /> 
-            {isSaving ? "Saving..." : "Save Canvas"}
+            {isExecuting ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Running...</>
+            ) : (
+              <><Play className="mr-2 h-4 w-4" />Execute</>
+            )}
+          </Button>
+
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-violet-600 hover:bg-violet-700 text-white shadow-[0_0_12px_rgba(124,58,237,0.25)]"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
 
-      {/* Main Builder Grid */}
+      {/* ── Main layout ─────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        
-        {/* Left canvas controls / nodes menu */}
-        <div className="w-56 border-r border-zinc-900 bg-zinc-950/40 p-4 space-y-6 flex-shrink-0 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Nodes Palette</h3>
-              <p className="text-[10px] text-zinc-500 mt-0.5">Click to place on canvas</p>
-            </div>
-            
-            <div className="grid gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="justify-start border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 text-zinc-350 hover:text-white"
-                onClick={() => addNewNode("trigger")}
-              >
-                <span className="h-2 w-2 rounded-full bg-emerald-500 mr-2.5" />
-                Trigger Event
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="justify-start border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 text-zinc-350 hover:text-white"
-                onClick={() => addNewNode("agent")}
-              >
-                <span className="h-2 w-2 rounded-full bg-violet-500 mr-2.5 animate-pulse" />
-                Gemini Agent
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="justify-start border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 text-zinc-350 hover:text-white"
-                onClick={() => addNewNode("action")}
-              >
-                <span className="h-2 w-2 rounded-full bg-blue-500 mr-2.5" />
-                Integration Action
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="justify-start border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 text-zinc-350 hover:text-white"
-                onClick={() => addNewNode("webhook")}
-              >
-                <span className="h-2 w-2 rounded-full bg-amber-500 mr-2.5" />
-                Webhook Listener
-              </Button>
-            </div>
+
+        {/* ── Left: Node palette ───────────────────────────── */}
+        <div className="w-52 border-r border-zinc-900 bg-zinc-950/40 flex-shrink-0 flex flex-col overflow-y-auto">
+          <div className="p-4 border-b border-zinc-900">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              Node Palette
+            </h3>
+            <p className="text-[9px] text-zinc-600 mt-0.5">Click to add to canvas</p>
           </div>
 
-          <div className="border-t border-zinc-900 pt-4 text-[10px] text-zinc-500 space-y-1">
-            <p className="font-semibold text-zinc-400">Builder Tips:</p>
-            <p>• Connect nodes by dragging outputs to inputs.</p>
-            <p>• Select any node to configure options.</p>
-            <p>• Delete using the bin icon in the header.</p>
+          <div className="p-3 space-y-4 flex-1">
+            {PALETTE_GROUPS.map((group) => {
+              const items = NODE_REGISTRY.filter(
+                (n) =>
+                  n.category === group.label.toLowerCase().replace(" / actions", "").replace(" / ai", "").replace("ai / ", "") ||
+                  n.category === group.category ||
+                  ("extraCategory" in group && n.category === group.extraCategory)
+              );
+
+              if (items.length === 0) return null;
+
+              return (
+                <div key={group.label}>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-600 mb-1.5 px-1">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {items.map((def) => (
+                      <button
+                        key={def.type}
+                        onClick={() => addNode(def.type, def)}
+                        disabled={def.status === "coming-soon"}
+                        className={cn(
+                          "w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium transition-all border",
+                          def.status === "coming-soon"
+                            ? "border-zinc-900 text-zinc-600 cursor-not-allowed"
+                            : "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700"
+                        )}
+                        title={def.description}
+                      >
+                        <span className="flex items-center justify-between">
+                          <span>{def.name}</span>
+                          {def.status === "beta" && (
+                            <span className="text-[8px] text-amber-400 border border-amber-400/30 rounded px-1">β</span>
+                          )}
+                          {def.status === "coming-soon" && (
+                            <span className="text-[8px] text-zinc-600 border border-zinc-700 rounded px-1">soon</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Canvas stats */}
+          <div className="border-t border-zinc-900 p-3 text-[10px] text-zinc-500 space-y-1">
+            <div className="flex justify-between">
+              <span>Nodes</span><span className="text-white font-medium">{nodes.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Edges</span><span className="text-white font-medium">{edges.length}</span>
+            </div>
           </div>
         </div>
 
-        {/* Center: React Flow Canvas */}
+        {/* ── Centre: React Flow canvas ────────────────────── */}
         <div className="flex-1 relative h-full bg-zinc-950">
           <ReactFlow
             nodes={nodes}
@@ -613,99 +468,149 @@ export default function WorkflowCanvas() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={onNodeClick}
-            nodeTypes={nodeTypes}
+            onPaneClick={onPaneClick}
+            nodeTypes={stableNodeTypes}
             fitView
+            deleteKeyCode="Delete"
             className="dark-theme"
           >
-            <Background color="#1f1f23" gap={18} size={1} />
-            <Controls className="bg-zinc-900 border border-zinc-800 text-white rounded-lg" />
-            <MiniMap 
+            <Background
+              variant={BackgroundVariant.Dots}
+              color="#27272a"
+              gap={18}
+              size={1}
+            />
+            <Controls className="bg-zinc-900 border border-zinc-800 text-white rounded-lg [&>button]:border-zinc-700 [&>button]:bg-zinc-900 [&>button]:text-zinc-300" />
+            <MiniMap
               className="border border-zinc-800 bg-zinc-950/80 rounded-lg hidden sm:block"
-              nodeColor={() => "#27272a"}
-              maskColor="rgba(0, 0, 0, 0.4)"
+              nodeColor={() => "#3f3f46"}
+              maskColor="rgba(0,0,0,0.5)"
             />
 
-            {/* Floating Top AI Generator Box */}
-            <Panel position="top-center" className="w-full max-w-lg mt-4 px-4 sm:px-0">
-              <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/80 p-1.5 shadow-[0_4px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl flex items-center gap-2">
-                <div className="absolute -left-20 -top-20 h-40 w-40 rounded-full bg-violet-600/10 blur-3xl"></div>
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600/20 text-violet-400 border border-violet-500/20 flex-shrink-0 z-10">
-                  <Sparkles size={16} />
+            {/* Execution result panel */}
+            {executionResult && (
+              <Panel position="bottom-center" className="mb-4 w-full max-w-2xl px-4">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+                  <div
+                    className={cn(
+                      "flex items-center justify-between px-4 py-2.5 border-b border-zinc-800 cursor-pointer",
+                      executionResult.status === "success"
+                        ? "bg-emerald-500/10"
+                        : "bg-red-500/10"
+                    )}
+                    onClick={() => setLogsExpanded((v) => !v)}
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      {executionResult.status === "success" ? (
+                        <Check size={15} className="text-emerald-400" />
+                      ) : (
+                        <AlertCircle size={15} className="text-red-400" />
+                      )}
+                      <span className={executionResult.status === "success" ? "text-emerald-400" : "text-red-400"}>
+                        {executionResult.status === "success" ? "Execution Successful" : "Execution Failed"}
+                      </span>
+                      <span className="text-zinc-500 text-xs font-normal flex items-center gap-1">
+                        <Clock size={11} /> {executionResult.durationMs}ms
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-500">
+                        {executionResult.nodeResults.filter((r) => r.status === "success").length}/
+                        {executionResult.nodeResults.length} nodes passed
+                      </span>
+                      {logsExpanded ? <ChevronDown size={14} className="text-zinc-400" /> : <ChevronRight size={14} className="text-zinc-400" />}
+                    </div>
+                  </div>
+
+                  {logsExpanded && (
+                    <div className="max-h-48 overflow-y-auto p-3 space-y-1">
+                      {executionResult.logs.map((log, i) => (
+                        <p key={i} className="text-[11px] font-mono text-zinc-400 leading-relaxed">
+                          {log}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <input
-                  type="text"
-                  placeholder="Describe your AI flow (e.g. webhook with AI summary email)..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleTranslatePrompt()}
-                  className="bg-transparent border-0 focus:outline-none focus:ring-0 flex-1 text-xs text-white placeholder-zinc-500 z-10"
-                />
-                <Button 
-                  size="sm" 
-                  className="h-8 bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-medium z-10"
-                  onClick={handleTranslatePrompt}
-                  disabled={!prompt.trim()}
-                >
-                  Generate
-                </Button>
-              </div>
-            </Panel>
+              </Panel>
+            )}
           </ReactFlow>
         </div>
 
-        {/* Right Properties Inspector */}
-        <div className="w-64 border-l border-zinc-900 bg-zinc-950/40 p-5 flex-shrink-0 space-y-6 flex flex-col justify-between">
+        {/* ── Right: Properties inspector ──────────────────── */}
+        <div className="w-60 border-l border-zinc-900 bg-zinc-950/40 flex-shrink-0 flex flex-col">
+          <div className="p-4 border-b border-zinc-900">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Inspector</h3>
+          </div>
+
           {selectedNode ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Node Properties</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">ID: {selectedNode.id}</p>
+            <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+              <div className="text-[10px] text-zinc-600 font-mono">ID: {selectedNode.id}</div>
+              <div className="text-[10px] text-zinc-600 font-mono">Type: {selectedNode.type}</div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-zinc-400">Label</label>
+                <Input
+                  value={selectedNode.data.label}
+                  onChange={(e) => updateSelectedNode("label", e.target.value)}
+                  className="bg-zinc-950 border-zinc-800 text-xs text-white focus:border-violet-500 h-8"
+                />
               </div>
-              
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-zinc-400">Node Title</label>
-                  <Input
-                    value={selectedNode.data.label}
-                    onChange={(e) => handleUpdateNodeLabel(e.target.value)}
-                    className="bg-zinc-950 border-zinc-800 text-xs text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                  />
-                </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-zinc-400">Description</label>
-                  <textarea
-                    rows={4}
-                    value={selectedNode.data.description}
-                    onChange={(e) => handleUpdateNodeDescription(e.target.value)}
-                    className="w-full rounded-md bg-zinc-950 border border-zinc-800 text-xs p-2 text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                  />
-                </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-zinc-400">Description</label>
+                <textarea
+                  rows={4}
+                  value={selectedNode.data.description}
+                  onChange={(e) => updateSelectedNode("description", e.target.value)}
+                  className="w-full rounded-md bg-zinc-950 border border-zinc-800 text-xs p-2 text-white focus:outline-none focus:border-violet-500 resize-none"
+                />
               </div>
+
+              <button
+                onClick={() => handleDeleteNode(selectedNode.id)}
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs py-2 transition-colors"
+              >
+                <Trash2 size={12} /> Delete Node
+              </button>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-4 border border-dashed border-zinc-900 rounded-xl">
-              <Settings size={28} className="text-zinc-650 animate-spin-slow mb-3" />
-              <h4 className="text-xs font-semibold text-zinc-400">No Node Selected</h4>
-              <p className="text-[10px] text-zinc-500 mt-1 max-w-[150px]">
-                Click on any node on the canvas to configure settings and parameters.
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 mb-3 text-zinc-500">
+                <Settings size={22} />
+              </div>
+              <p className="text-xs font-medium text-zinc-400">No node selected</p>
+              <p className="text-[10px] text-zinc-600 mt-1">
+                Click any node on the canvas to inspect and edit its properties.
               </p>
             </div>
           )}
 
-          <div className="border-t border-zinc-900 pt-4 flex flex-col gap-2">
-            <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Canvas Overview</h5>
-            <div className="flex items-center justify-between text-[11px] text-zinc-400">
-              <span>Total Nodes:</span>
-              <span className="font-semibold text-white">{nodes.length}</span>
+          {/* Execution summary in inspector */}
+          {executionResult && (
+            <div className="border-t border-zinc-900 p-4 space-y-2">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Last Run</p>
+              <div className="space-y-1.5">
+                {executionResult.nodeResults.map((r) => (
+                  <div key={r.nodeId} className="flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-400 truncate max-w-[120px]">{r.nodeLabel}</span>
+                    <span className={cn(
+                      "flex items-center gap-1 font-medium",
+                      r.status === "success" ? "text-emerald-400" : "text-red-400"
+                    )}>
+                      {r.status === "success" ? <Check size={10} /> : <AlertCircle size={10} />}
+                      {r.durationMs}ms
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1 text-[10px] text-zinc-500 pt-1 border-t border-zinc-900">
+                  <Zap size={10} />
+                  Total: {executionResult.durationMs}ms
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-zinc-400">
-              <span>Total Edges:</span>
-              <span className="font-semibold text-white">{edges.length}</span>
-            </div>
-          </div>
+          )}
         </div>
-
       </div>
     </div>
   );

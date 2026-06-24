@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Workflow,
   Sparkles,
+  Activity,
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,11 +30,12 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems: SidebarItem[] = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Workflows", href: "/workflows", icon: Network },
-    { name: "Create Workflow", href: "/create", icon: PlusCircle },
-    { name: "AI Generator", href: "/generate", icon: Sparkles },
-    { name: "Profile", href: "/profile", icon: User },
+    { name: "Dashboard",       href: "/dashboard",   icon: LayoutDashboard },
+    { name: "Workflows",       href: "/workflows",   icon: Network },
+    { name: "Create Workflow", href: "/create",      icon: PlusCircle },
+    { name: "AI Generator",    href: "/generate",    icon: Sparkles },
+    { name: "Executions",      href: "/executions",  icon: Activity },
+    { name: "Profile",         href: "/profile",     icon: User },
   ];
 
   return (

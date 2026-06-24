@@ -24,11 +24,11 @@ export default async function WorkflowsPage() {
     }));
   } catch {
     // Fall back to local store — silent, no console spam
-    const local = localStore.find("workflows", { userId: "mock-user-123" });
+    const local = localStore.find<{ userId: string; title: string; description: string }>("workflows", { userId: "mock-user-123" });
     workflows = local.map((w) => ({
       _id: w._id,
-      title: (w.title as string) || "Untitled",
-      description: (w.description as string) || "",
+      title: w.title || "Untitled",
+      description: w.description || "",
       createdAt: w.createdAt,
     }));
   }

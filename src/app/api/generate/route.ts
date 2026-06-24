@@ -3,9 +3,24 @@ import { connectToDatabase } from "@/lib/db";
 import Workflow from "@/models/Workflow";
 import { generateWorkflowJson } from "@/lib/gemini";
 import { localStore } from "@/lib/local-store";
+import { normaliseLegacyType } from "@/lib/node-registry";
 
 const COLLECTION = "workflows";
 const MOCK_USER = "mock-user-123";
+
+/** Maps Gemini trigger strings → React Flow node types */
+const TRIGGER_NODE_TYPE: Record<string, string> = {
+  manual_trigger: "manualTrigger",
+  pdf_upload:     "pdfUpload",
+  webhook:        "webhookTrigger",
+};
+
+/** Maps Gemini step strings → React Flow node types + labels */
+const STEP_NODE_MAP: Record<string, { type: string; label: string }> = {
+  summarize_pdf: { type: "aiSummary",    label: "AI Summary" },
+  save_db:       { type: "saveDatabase", label: "Save to Database" },
+  send_email:    { type: "sendEmail",    label: "Send Email" },
+};
 
 export async function POST(req: Request) {
   try {
@@ -18,26 +33,35 @@ export async function POST(req: Request) {
     // 1. Generate structured JSON using Gemini (with smart fallback on quota errors)
     const generatedData = await generateWorkflowJson(prompt);
 
-    // 2. Convert to React Flow format
+    // 2. Convert to React Flow format using canonical node types
     const nodes: Record<string, unknown>[] = [];
     const edges: Record<string, unknown>[] = [];
 
-    // Add Trigger Node
+    // Trigger node
+    const triggerType = TRIGGER_NODE_TYPE[generatedData.trigger] ?? normaliseLegacyType(generatedData.trigger);
     nodes.push({
       id: "node-0",
-      type: "triggerNode",
-      position: { x: 250, y: 100 },
-      data: { label: generatedData.trigger, type: "trigger" },
+      type: triggerType,
+      position: { x: 250, y: 80 },
+      data: {
+        label: generatedData.trigger.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        description: `Trigger: ${generatedData.trigger}`,
+      },
     });
 
-    // Add Action Nodes
+    // Step / action nodes
     generatedData.steps.forEach((step, index) => {
       const nodeId = `node-${index + 1}`;
+      const stepDef = STEP_NODE_MAP[step.type] ?? { type: normaliseLegacyType(step.type), label: step.type };
+
       nodes.push({
         id: nodeId,
-        type: "actionNode",
-        position: { x: 250, y: 100 + (index + 1) * 150 },
-        data: { label: step.type, type: "action" },
+        type: stepDef.type,
+        position: { x: 250, y: 80 + (index + 1) * 160 },
+        data: {
+          label: stepDef.label,
+          description: `Action: ${step.type}`,
+        },
       });
 
       edges.push({
@@ -54,7 +78,7 @@ export async function POST(req: Request) {
     const doc = {
       userId: MOCK_USER,
       title: "AI Generated Workflow",
-      description: prompt.substring(0, 100) + (prompt.length > 100 ? "..." : ""),
+      description: prompt.substring(0, 120) + (prompt.length > 120 ? "..." : ""),
       workflowJson,
     };
 
@@ -62,7 +86,8 @@ export async function POST(req: Request) {
     let saved: Record<string, unknown>;
     try {
       await connectToDatabase();
-      saved = (await Workflow.create(doc)).toObject();
+      const created = await Workflow.create(doc);
+      saved = created.toObject() as unknown as Record<string, unknown>;
     } catch {
       console.info("MongoDB unavailable — persisting to local store.");
       saved = localStore.insert(COLLECTION, doc);

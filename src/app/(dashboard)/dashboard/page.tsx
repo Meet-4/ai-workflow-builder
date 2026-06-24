@@ -5,10 +5,12 @@ import {
   Plus, 
   ArrowRight, 
   Activity, 
-  CheckCircle2, 
+  CheckCircle2,
   Workflow as FlowIcon,
   Calendar,
-  Network
+  Network,
+  XCircle,
+  TrendingUp,
 } from "lucide-react";
 import { connectToDatabase } from "@/lib/db";
 import Workflow, { IWorkflow } from "@/models/Workflow";
@@ -65,6 +67,7 @@ export default async function DashboardPage() {
   const totalExecutions = executions.length;
 
   const successExecutions = executions.filter((e) => e.status === "success").length;
+  const failedExecutions  = executions.filter((e) => e.status === "failed").length;
   const successRate = totalExecutions > 0
     ? Math.round((successExecutions / totalExecutions) * 100)
     : 100;
@@ -152,28 +155,31 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-zinc-400">Success Rate</span>
             <div className="rounded-lg bg-zinc-800/80 p-2 border border-zinc-700/50">
-              <CheckCircle2 className="h-4 w-4 text-blue-400" />
+              <TrendingUp className="h-4 w-4 text-blue-400" />
             </div>
           </div>
           <div className="mt-4">
             <span className="text-3xl font-bold text-white">{successRate}%</span>
-            <p className="text-xs text-zinc-500 mt-1">Average system stability</p>
+            <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${successRate}%` }} />
+            </div>
           </div>
         </div>
 
         <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-md transition hover:border-zinc-700">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-zinc-400">System Status</span>
+            <span className="text-sm font-medium text-zinc-400">Failed Executions</span>
             <div className="rounded-lg bg-zinc-800/80 p-2 border border-zinc-700/50">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </div>
+              <XCircle className="h-4 w-4 text-red-400" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-3xl font-bold text-white">Online</span>
-            <p className="text-xs text-emerald-500 mt-1">All agent instances operational</p>
+            <span className="text-3xl font-bold text-white">{failedExecutions}</span>
+            <p className="text-xs text-zinc-500 mt-1">
+              <Link href="/executions" className="hover:text-violet-400 transition-colors">
+                View all runs →
+              </Link>
+            </p>
           </div>
         </div>
       </div>
